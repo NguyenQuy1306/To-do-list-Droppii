@@ -19,8 +19,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -145,7 +148,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public void addDependency(Long taskId, Long dependencyId) {
         Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
-        Task dependencyTask = getTaskById(taskId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
+        Task dependencyTask = getTaskById(dependencyId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
         TaskDependencyId taskDependencyId = new TaskDependencyId(taskId, dependencyId);
 
         if (taskDependencyRepository.existsById(taskDependencyId)) {
@@ -159,11 +162,37 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public void deleteDependency(Long taskId, Long dependencyId) {
         getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
-        getTaskById(taskId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
+        getTaskById(dependencyId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
         TaskDependencyId taskDependencyId = new TaskDependencyId(taskId, dependencyId);
         if (!taskDependencyRepository.existsById(taskDependencyId)) {
             throw new TodoException("Dependency does not exist", "DEPENDENCY_NOT_EXISTS", HttpStatus.BAD_REQUEST);
         }
         taskDependencyRepository.deleteById(taskDependencyId);
     }
+
+    private void getALlDependencies(Set<List<Long>> dependencies, List<Long> currentPath, Long taskId) {
+        List<TaskDependency> directDependencies = taskDependencyRepository.findByIdTaskId(taskId);
+        if (directDependencies.isEmpty()) {
+            dependencies.add(new ArrayList<>(currentPath));
+            return;
+        }
+        for (TaskDependency taskDependency : directDependencies) {
+            Long dependencyId = taskDependency.getId().getDependencyId();
+            // Check trong List sau đó add vào nếu chưa có.
+            if (!currentPath.contains(dependencyId)) {
+                currentPath.add(dependencyId);
+                getALlDependencies(dependencies, currentPath, dependencyId);
+                currentPath.remove(currentPath.size() - 1);
+            }
+        }
+    }
+
+    @Override
+    public Set<List<Long>> getDependencies(Long taskId) {
+        getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
+        Set<List<Long>> allDependencies = new HashSet<>();
+        getALlDependencies(allDependencies, new ArrayList<>(List.of(taskId)), taskId);
+        return allDependencies;
+    }
+
 }

@@ -2,6 +2,7 @@ package com.interviewproject.todolist.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,4 +28,6 @@ public interface TaskService {
     public void addDependency(Long taskId, Long dependencyId);
 
     public void deleteDependency(Long taskId, Long dependencyId);
+
+    public Set<List<Long>> getDependencies(Long taskId);
 }

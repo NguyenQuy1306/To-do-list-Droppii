@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.web.PageableDefault;
@@ -166,7 +167,7 @@ public class TaskController {
         try {
             taskService.deleteDependency(taskId, dependencyId);
             Map<String, Object> metadata = new HashMap<>();
-            metadata.put("message", "Dependency is added successfully");
+            metadata.put("message", "Dependency is deleted successfully");
             apiResponse.ok(null, metadata);
             return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
         } catch (TodoException e) {
@@ -178,4 +179,21 @@ public class TaskController {
         }
     }
 
+    @GetMapping("/{taskId}/dependencies")
+    public ResponseEntity<ApiResponse<Set<List<Long>>>> deleteDependency(@PathVariable Long taskId) {
+        ApiResponse<Set<List<Long>>> apiResponse = new ApiResponse<>();
+        try {
+            Set<List<Long>> dependencies = taskService.getDependencies(taskId);
+
+            apiResponse.ok(dependencies);
+            return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
+        } catch (TodoException e) {
+            apiResponse.error(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(e.getStatus()).body(apiResponse);
+        } catch (Exception e) {
+            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+
+    }
 }
