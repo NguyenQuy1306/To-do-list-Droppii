@@ -5,10 +5,6 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import com.interviewproject.todolist.model.entity.TaskStatus;
 import com.interviewproject.todolist.model.request.TaskRequest;
@@ -27,4 +23,8 @@ public interface TaskService {
     public TaskResponse updateTask(Long taskId, TaskUpdateRequest request);
 
     public void deleteTask(Long taskId);
+
+    public void addDependency(Long taskId, Long dependencyId);
+
+    public void deleteDependency(Long taskId, Long dependencyId);
 }

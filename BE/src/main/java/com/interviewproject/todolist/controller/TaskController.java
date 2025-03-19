@@ -112,7 +112,7 @@ public class TaskController {
         try {
             TaskResponse taskResponse = taskService.updateTask(taskId, taskRequest);
             apiResponse.ok(taskResponse);
-            return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+            return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
         } catch (TodoException e) {
             apiResponse.error(Map.of("message", e.getMessage()));
             return ResponseEntity.status(e.getStatus()).body(apiResponse);
@@ -130,7 +130,45 @@ public class TaskController {
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("message", "Task deleted successfully");
             apiResponse.ok(null, metadata);
-            return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+            return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
+        } catch (TodoException e) {
+            apiResponse.error(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(e.getStatus()).body(apiResponse);
+        } catch (Exception e) {
+            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+    }
+
+    @PostMapping("{taskId}/dependencies/{dependencyId}")
+    public ResponseEntity<ApiResponse<Object>> createDependency(@PathVariable Long taskId,
+            @PathVariable Long dependencyId) {
+        ApiResponse<Object> apiResponse = new ApiResponse<>();
+        try {
+            taskService.addDependency(taskId, dependencyId);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("message", "Dependency is added successfully");
+            apiResponse.ok(null, metadata);
+            return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+        } catch (TodoException e) {
+            apiResponse.error(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(e.getStatus()).body(apiResponse);
+        } catch (Exception e) {
+            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+    }
+
+    @DeleteMapping("{taskId}/dependencies/{dependencyId}")
+    public ResponseEntity<ApiResponse<Object>> deleteDependency(@PathVariable Long taskId,
+            @PathVariable Long dependencyId) {
+        ApiResponse<Object> apiResponse = new ApiResponse<>();
+        try {
+            taskService.deleteDependency(taskId, dependencyId);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("message", "Dependency is added successfully");
+            apiResponse.ok(null, metadata);
+            return ResponseEntity.status(HttpStatus.OK).body(apiResponse);
         } catch (TodoException e) {
             apiResponse.error(Map.of("message", e.getMessage()));
             return ResponseEntity.status(e.getStatus()).body(apiResponse);

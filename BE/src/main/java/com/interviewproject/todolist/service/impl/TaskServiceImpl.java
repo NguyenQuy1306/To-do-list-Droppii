@@ -4,11 +4,14 @@ import com.interviewproject.todolist.service.TaskService;
 import com.interviewproject.todolist.specification.TaskSpecification;
 import com.interviewproject.todolist.exception.TodoException;
 import com.interviewproject.todolist.model.entity.Task;
+import com.interviewproject.todolist.model.entity.TaskDependency;
+import com.interviewproject.todolist.model.entity.TaskDependencyId;
 import com.interviewproject.todolist.model.entity.TaskStatus;
 import com.interviewproject.todolist.model.mapper.TaskMapper;
 import com.interviewproject.todolist.model.request.TaskRequest;
 import com.interviewproject.todolist.model.request.TaskUpdateRequest;
 import com.interviewproject.todolist.model.response.TaskResponse;
+import com.interviewproject.todolist.repository.TaskDependencyRepository;
 import com.interviewproject.todolist.repository.TaskRepository;
 
 import jakarta.validation.Valid;
@@ -34,6 +37,8 @@ public class TaskServiceImpl implements TaskService {
     private TaskMapper taskMapper;
     @Autowired
     private TaskRepository taskRepository;
+    @Autowired
+    private TaskDependencyRepository taskDependencyRepository;
 
     @Override
     public TaskResponse createTask(TaskRequest request) {
@@ -85,6 +90,24 @@ public class TaskServiceImpl implements TaskService {
         return validTransitions.getOrDefault(currentStatus, List.of()).contains(newStatus);
     }
 
+    private void updateStatusTask(Long taskId, TaskStatus taskStatus) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
+        for (TaskDependency taskDependency : task.getDependencies()) {
+            if (taskDependency.getDependentTask().getStatus() != TaskStatus.COMPLETED) {
+                throw new TodoException("Cannot start task until all dependencies are completed",
+                        "DEPENDENCY_NOT_COMPLETED", HttpStatus.BAD_REQUEST);
+            }
+        }
+        task.setStatus(taskStatus);
+        taskRepository.save(task);
+    }
+
+    private Task getTaskById(Long taskId, String message, String errorCode) {
+        return taskRepository.findById(taskId)
+                .orElseThrow(() -> new TodoException(message, errorCode, HttpStatus.NOT_FOUND));
+    }
+
     @Override
     public TaskResponse updateTask(Long taskId, TaskUpdateRequest request) {
         Task task = taskRepository.findById(taskId)
@@ -104,9 +127,9 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getStatus() != null) {
             if (!isValidStatusTransition(task.getStatus(), request.getStatus())) {
-                throw new TodoException("Invalid status transition", "INVALID_STATUS", HttpStatus.BAD_REQUEST);
+                throw new TodoException("Invalid status", "INVALID_STATUS", HttpStatus.BAD_REQUEST);
             }
-            task.setStatus(request.getStatus());
+            updateStatusTask(task.getTaskId(), request.getStatus());
         }
 
         task = taskRepository.save(task);
@@ -115,9 +138,32 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public void deleteTask(Long taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
+        Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
         taskRepository.delete(task);
     }
 
+    @Override
+    public void addDependency(Long taskId, Long dependencyId) {
+        Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
+        Task dependencyTask = getTaskById(taskId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
+        TaskDependencyId taskDependencyId = new TaskDependencyId(taskId, dependencyId);
+
+        if (taskDependencyRepository.existsById(taskDependencyId)) {
+            throw new TodoException("Dependency already exists", "DEPENDENCY_EXISTS", HttpStatus.BAD_REQUEST);
+        }
+        TaskDependency taskDependency = TaskDependency.builder().id(taskDependencyId).dependentTask(dependencyTask)
+                .task(task).build();
+        taskDependencyRepository.save(taskDependency);
+    }
+
+    @Override
+    public void deleteDependency(Long taskId, Long dependencyId) {
+        getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
+        getTaskById(taskId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
+        TaskDependencyId taskDependencyId = new TaskDependencyId(taskId, dependencyId);
+        if (!taskDependencyRepository.existsById(taskDependencyId)) {
+            throw new TodoException("Dependency does not exist", "DEPENDENCY_NOT_EXISTS", HttpStatus.BAD_REQUEST);
+        }
+        taskDependencyRepository.deleteById(taskDependencyId);
+    }
 }
