@@ -16,5 +16,5 @@ import org.springframework.data.domain.Page;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-
+    boolean existsByTitle(String title);
 }
