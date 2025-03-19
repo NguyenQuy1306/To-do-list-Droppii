@@ -145,6 +145,25 @@ public class TaskServiceImpl implements TaskService {
         taskRepository.delete(task);
     }
 
+    private Boolean checkCycle(Long taskId, Long dependencyId) {
+        List<TaskDependency> directDependencies = taskDependencyRepository.findByIdTaskId(dependencyId);
+        if (directDependencies.isEmpty()) {
+            return false;
+        }
+
+        for (TaskDependency taskDependency : directDependencies) {
+            Long currentId = taskDependency.getDependentTask().getTaskId();
+            if (currentId.equals(taskId)) {
+                return true;
+            }
+            if (checkCycle(taskId, currentId)) {
+                return true;
+            }
+
+        }
+        return false;
+    }
+
     @Override
     public void addDependency(Long taskId, Long dependencyId) {
         Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
@@ -153,6 +172,11 @@ public class TaskServiceImpl implements TaskService {
 
         if (taskDependencyRepository.existsById(taskDependencyId)) {
             throw new TodoException("Dependency already exists", "DEPENDENCY_EXISTS", HttpStatus.BAD_REQUEST);
+        }
+        Boolean checkCycle = checkCycle(taskId, dependencyId);
+        if (checkCycle) {
+            throw new TodoException("Adding this dependency would create a cycle", "CIRCULAR_DEPENDENCY",
+                    HttpStatus.BAD_REQUEST);
         }
         TaskDependency taskDependency = TaskDependency.builder().id(taskDependencyId).dependentTask(dependencyTask)
                 .task(task).build();
