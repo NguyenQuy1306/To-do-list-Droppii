@@ -3,6 +3,8 @@ package com.interviewproject.todolist.model.response;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import com.interviewproject.todolist.model.entity.TaskStatus;
+
 import lombok.*;
 
 @Getter
@@ -14,5 +16,5 @@ public class TaskResponse implements Serializable {
     private String description;
     private LocalDateTime dueDate;
     private Integer priority;
-    private String status;
+    private TaskStatus status;
 }

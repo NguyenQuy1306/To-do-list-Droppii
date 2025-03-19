@@ -1,6 +1,7 @@
 package com.interviewproject.todolist.service.impl;
 
 import com.interviewproject.todolist.service.TaskService;
+import com.interviewproject.todolist.specification.TaskSpecification;
 import com.interviewproject.todolist.exception.TodoException;
 import com.interviewproject.todolist.model.entity.Task;
 import com.interviewproject.todolist.model.entity.TaskStatus;
@@ -13,7 +14,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -49,5 +55,20 @@ public class TaskServiceImpl implements TaskService {
             log.error("Error creating task: ", e);
             throw new TodoException("Internal Server Error", "INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public Page<TaskResponse> listTasks(String title,
+            TaskStatus status,
+            Integer priority,
+            LocalDate dueDate,
+            Pageable pageable) {
+        Specification<Task> spec = TaskSpecification.filterTasks(title, status, priority, dueDate);
+
+        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
+        if (taskPage.isEmpty()) {
+            throw new TodoException("No tasks found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+        return taskPage.map(taskMapper::toTaskResponse);
     }
 }
