@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.interviewproject.todolist.model.entity.TaskStatus;
 import com.interviewproject.todolist.model.request.TaskRequest;
+import com.interviewproject.todolist.model.request.TaskUpdateRequest;
 import com.interviewproject.todolist.model.response.TaskResponse;
 
 public interface TaskService {
@@ -22,4 +23,7 @@ public interface TaskService {
             Integer priority,
             LocalDate dueDate,
             Pageable pageable);
+
+    public TaskResponse updateTask(Long taskId, TaskUpdateRequest request);
+
 }

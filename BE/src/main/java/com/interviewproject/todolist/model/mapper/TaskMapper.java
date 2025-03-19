@@ -21,5 +21,7 @@ public interface TaskMapper {
     @Mapping(source = "task.description", target = "description")
     @Mapping(source = "task.dueDate", target = "dueDate")
     @Mapping(source = "task.priority", target = "priority")
+    // @Mapping(source = "task.status", target = "status")
     TaskResponse toTaskResponse(Task task);
+
 }

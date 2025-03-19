@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.interviewproject.todolist.exception.TodoException;
 import com.interviewproject.todolist.model.entity.TaskStatus;
 import com.interviewproject.todolist.model.request.TaskRequest;
+import com.interviewproject.todolist.model.request.TaskUpdateRequest;
 import com.interviewproject.todolist.model.response.ApiResponse;
 import com.interviewproject.todolist.model.response.MetadataResponse;
 import com.interviewproject.todolist.model.response.TaskResponse;
@@ -32,6 +33,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequestMapping("api/tasks")
@@ -96,5 +99,23 @@ public class TaskController {
         }
 
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    }
+
+    @PutMapping("{taskId}")
+    public ResponseEntity<ApiResponse<TaskResponse>> putMethodName(@PathVariable Long taskId,
+            @RequestBody @Valid TaskUpdateRequest taskRequest) {
+        ApiResponse<TaskResponse> apiResponse = new ApiResponse<>();
+
+        try {
+            TaskResponse taskResponse = taskService.updateTask(taskId, taskRequest);
+            apiResponse.ok(taskResponse);
+            return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        } catch (TodoException e) {
+            apiResponse.error(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(e.getStatus()).body(apiResponse);
+        } catch (Exception e) {
+            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
     }
 }
