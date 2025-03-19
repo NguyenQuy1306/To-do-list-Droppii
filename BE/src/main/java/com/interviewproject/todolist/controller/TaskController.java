@@ -2,6 +2,7 @@ package com.interviewproject.todolist.controller;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.ServletWebRequest;
 
 import com.interviewproject.todolist.exception.TodoException;
 import com.interviewproject.todolist.model.entity.TaskStatus;
@@ -16,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.data.domain.Page;
@@ -118,4 +121,23 @@ public class TaskController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
         }
     }
+
+    @DeleteMapping("/{taskId}")
+    public ResponseEntity<ApiResponse<Object>> deleteTask(@PathVariable Long taskId) {
+        ApiResponse<Object> apiResponse = new ApiResponse<>();
+        try {
+            taskService.deleteTask(taskId);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("message", "Task deleted successfully");
+            apiResponse.ok(null, metadata);
+            return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        } catch (TodoException e) {
+            apiResponse.error(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(e.getStatus()).body(apiResponse);
+        } catch (Exception e) {
+            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+    }
+
 }

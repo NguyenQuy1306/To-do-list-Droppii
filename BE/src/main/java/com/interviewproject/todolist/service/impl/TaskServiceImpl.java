@@ -113,4 +113,11 @@ public class TaskServiceImpl implements TaskService {
         return taskMapper.toTaskResponse(task);
     }
 
+    @Override
+    public void deleteTask(Long taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
+        taskRepository.delete(task);
+    }
+
 }
