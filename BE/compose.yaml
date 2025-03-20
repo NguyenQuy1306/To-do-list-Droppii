@@ -54,7 +54,7 @@ services:
   #   environment:
   #     - POSTGRES_USER=postgres
   #     - POSTGRES_PASSWORD=Ngocquynguyen1
-  #     - POSTGRES_DB=curcus
+  #     - POSTGRES_DB=todolist
   #   networks:
   #     - app_network
 
