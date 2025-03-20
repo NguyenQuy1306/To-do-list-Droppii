@@ -14,6 +14,7 @@ import com.interviewproject.todolist.model.response.TaskResponse;
 import com.interviewproject.todolist.repository.TaskDependencyRepository;
 import com.interviewproject.todolist.repository.TaskRepository;
 
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +25,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -42,7 +48,16 @@ public class TaskServiceImpl implements TaskService {
     private TaskRepository taskRepository;
     @Autowired
     private TaskDependencyRepository taskDependencyRepository;
+    @Autowired
+    private ApplicationContext context;
 
+    private TaskResponse toTaskResponse(Task task) {
+        return TaskResponse.builder().description(task.getDescription()).dueDate(task.getDueDate())
+                .priority(task.getPriority()).status(task.getStatus()).taskId(task.getTaskId()).title(task.getTitle())
+                .build();
+    }
+
+    @CacheEvict(value = "tasks", allEntries = true)
     @Override
     public TaskResponse createTask(TaskRequest request) {
         try {
@@ -60,28 +75,44 @@ public class TaskServiceImpl implements TaskService {
 
             task = taskRepository.save(task);
 
-            return taskMapper.toTaskResponse(task);
+            return toTaskResponse(task);
         } catch (TodoException e) {
             throw e;
         } catch (Exception e) {
+            System.out.println("Error creating task: " + e);
             log.error("Error creating task: ", e);
             throw new TodoException("Internal Server Error", "INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    @Override
-    public Page<TaskResponse> listTasks(String title,
-            TaskStatus status,
-            Integer priority,
-            LocalDate dueDate,
-            Pageable pageable) {
+    @Cacheable(value = "tasks", key = "'tasks:' + (#title != null ? #title : 'all') + ':' + (#status != null ? #status.name() : 'null') + ':' + (#priority != null ? #priority : 'null') + ':' + (#dueDate != null ? #dueDate.toString() : 'null')")
+    public List<TaskResponse> getCachedTaskList(String title, TaskStatus status, Integer priority, LocalDate dueDate) {
         Specification<Task> spec = TaskSpecification.filterTasks(title, status, priority, dueDate);
-
-        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
-        if (taskPage.isEmpty()) {
+        List<Task> tasks = taskRepository.findAll(spec);
+        if (tasks.isEmpty()) {
             throw new TodoException("No tasks found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND);
         }
-        return taskPage.map(taskMapper::toTaskResponse);
+        return tasks.stream()
+                .map(task -> TaskResponse.builder()
+                        .taskId(task.getTaskId())
+                        .dueDate(task.getDueDate())
+                        .description(task.getDescription())
+                        .priority(task.getPriority())
+                        .status(task.getStatus())
+                        .title(task.getTitle())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<TaskResponse> listTasks(String title, TaskStatus status, Integer priority, LocalDate dueDate,
+            Pageable pageable) {
+        TaskServiceImpl proxy = context.getBean(TaskServiceImpl.class);
+        List<TaskResponse> cachedList = proxy.getCachedTaskList(title, status, priority, dueDate);
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), cachedList.size());
+        List<TaskResponse> pagedList = cachedList.subList(start, end);
+        return new PageImpl<>(pagedList, pageable, cachedList.size());
     }
 
     private boolean isValidStatusTransition(TaskStatus currentStatus, TaskStatus newStatus) {
@@ -111,6 +142,7 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new TodoException(message, errorCode, HttpStatus.NOT_FOUND));
     }
 
+    @CacheEvict(value = "tasks", allEntries = true)
     @Override
     public TaskResponse updateTask(Long taskId, TaskUpdateRequest request) {
         Task task = taskRepository.findById(taskId)
@@ -136,9 +168,10 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task = taskRepository.save(task);
-        return taskMapper.toTaskResponse(task);
+        return toTaskResponse(task);
     }
 
+    @CacheEvict(value = "tasks", allEntries = true)
     @Override
     public void deleteTask(Long taskId) {
         Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
@@ -164,7 +197,7 @@ public class TaskServiceImpl implements TaskService {
         return false;
     }
 
-    @Override
+    @Transactional
     public void addDependency(Long taskId, Long dependencyId) {
         Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
         Task dependencyTask = getTaskById(dependencyId, "Dependency Task not found", "DEPENDENCY_TASK_NOT_FOUND");
@@ -219,4 +252,10 @@ public class TaskServiceImpl implements TaskService {
         return allDependencies;
     }
 
+    @Cacheable(value = "tasks", key = "#taskId")
+    @Override
+    public TaskResponse findById(Long taskId) {
+        Task task = getTaskById(taskId, "Task not found", "TASK_NOT_FOUND");
+        return taskMapper.toResponse(task);
+    }
 }

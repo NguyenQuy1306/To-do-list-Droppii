@@ -10,6 +10,8 @@ import lombok.*;
 @Getter
 @Setter
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class TaskResponse implements Serializable {
     private Long taskId;
     private String title;

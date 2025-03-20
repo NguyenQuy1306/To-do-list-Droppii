@@ -30,4 +30,6 @@ public interface TaskService {
     public void deleteDependency(Long taskId, Long dependencyId);
 
     public Set<List<Long>> getDependencies(Long taskId);
+
+    public TaskResponse findById(Long taskId);
 }

@@ -1,19 +1,19 @@
 package com.interviewproject.todolist.model.mapper;
 
+import java.util.List;
+
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
+
 import com.interviewproject.todolist.model.entity.Task;
 import com.interviewproject.todolist.model.response.TaskResponse;
 
 @Mapper(componentModel = "spring")
 public interface TaskMapper {
+    TaskMapper INSTANCE = Mappers.getMapper(TaskMapper.class);
 
-    @Mapping(source = "task.taskId", target = "taskId")
-    @Mapping(source = "task.title", target = "title")
-    @Mapping(source = "task.description", target = "description")
-    @Mapping(source = "task.dueDate", target = "dueDate")
-    @Mapping(source = "task.priority", target = "priority")
-    @Mapping(source = "task.status", target = "status")
-    TaskResponse toTaskResponse(Task task);
+    TaskResponse toResponse(Task task);
 
+    List<TaskResponse> toResponseList(List<Task> tasks);
 }

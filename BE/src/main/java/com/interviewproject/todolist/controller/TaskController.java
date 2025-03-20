@@ -59,7 +59,7 @@ public class TaskController {
             apiResponse.error(Map.of("message", e.getMessage()));
             return ResponseEntity.status(e.getStatus()).body(apiResponse);
         } catch (Exception e) {
-            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            apiResponse.error(Map.of("message", "Unexpected error occurred: " + e));
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
         }
     }
@@ -75,30 +75,26 @@ public class TaskController {
         ApiResponse<List<TaskResponse>> apiResponse = new ApiResponse<>();
         try {
             Pageable pageable = PageRequest.of(page, size);
+            Page<TaskResponse> tasksPage = taskService.listTasks(title, status, priority, dueDate, pageable);
 
-            Page<TaskResponse> tasks = taskService.listTasks(title, status, priority, dueDate, pageable);
             MetadataResponse metadata = new MetadataResponse(
-                    tasks.getTotalElements(),
-                    tasks.getTotalPages(),
-                    tasks.getNumber(),
-                    tasks.getSize(),
-                    (tasks.hasNext()
-                            ? "/api/tasks?page=" + (tasks.getNumber() +
-                                    1)
-                            : null),
-                    (tasks.hasPrevious() ? "/api/tasks?page=" +
-                            (tasks.getNumber() - 1) : null),
-                    "/api/tasks?page=" + (tasks.getTotalPages() - 1),
+                    tasksPage.getTotalElements(),
+                    tasksPage.getTotalPages(),
+                    tasksPage.getNumber(),
+                    tasksPage.getSize(),
+                    (tasksPage.hasNext() ? "/api/tasks?page=" + (tasksPage.getNumber() + 1) : null),
+                    (tasksPage.hasPrevious() ? "/api/tasks?page=" + (tasksPage.getNumber() - 1) : null),
+                    "/api/tasks?page=" + (tasksPage.getTotalPages() - 1),
                     "/api/tasks?page=0");
-            Map<String, Object> responseMetadata = new HashMap<>();
 
+            Map<String, Object> responseMetadata = new HashMap<>();
             responseMetadata.put("pagination", metadata);
-            apiResponse.ok(tasks.getContent(), responseMetadata);
+            apiResponse.ok(tasksPage.getContent(), responseMetadata);
         } catch (TodoException e) {
             apiResponse.error(Map.of("message", e.getMessage()));
             return ResponseEntity.status(e.getStatus()).body(apiResponse);
         } catch (Exception e) {
-            apiResponse.error(Map.of("message", "Unexpected error occurred"));
+            apiResponse.error(Map.of("message", "Unexpected error occurred: " + e));
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
         }
 
@@ -195,5 +191,10 @@ public class TaskController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
         }
 
+    }
+
+    @GetMapping("/{taskId}")
+    public ResponseEntity<TaskResponse> getUserById(@PathVariable Long taskId) {
+        return ResponseEntity.ok(taskService.findById(taskId));
     }
 }
