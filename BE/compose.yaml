@@ -39,9 +39,11 @@ services:
     image: 'redis:latest'
     container_name: redis_cache
     restart: always
+    volumes:
+      - redis-data:/data
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+    command: [ "redis-server", "--save", "60", "1", "--loglevel", "warning" ]
     networks:
       - todolist
   # db:
@@ -60,6 +62,7 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
 networks:
   todolist:
     driver: bridge
