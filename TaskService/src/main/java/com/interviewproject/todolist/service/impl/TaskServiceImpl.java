@@ -1,6 +1,7 @@
 package com.interviewproject.todolist.service.impl;
 
 import com.interviewproject.todolist.service.KafkaProducerService;
+import com.interviewproject.todolist.service.RedisService;
 import com.interviewproject.todolist.service.TaskService;
 import com.interviewproject.todolist.specification.TaskSpecification;
 import com.interviewproject.todolist.exception.TodoException;
@@ -55,11 +56,11 @@ public class TaskServiceImpl implements TaskService {
     private ApplicationContext context;
     @Autowired
     private KafkaProducerService kafkaProducerService;
+    @Autowired
+    private RedisService redisService;
 
     private TaskResponse toTaskResponse(Task task) {
-        return TaskResponse.builder().description(task.getDescription()).dueDate(task.getDueDate())
-                .priority(task.getPriority()).status(task.getStatus()).taskId(task.getTaskId()).title(task.getTitle())
-                .build();
+        return TaskResponse.builder().description(task.getDescription()).dueDate(task.getDueDate()).priority(task.getPriority()).status(task.getStatus()).taskId(task.getTaskId()).title(task.getTitle()).build();
     }
 
     @CacheEvict(value = "tasks", allEntries = true)
@@ -70,13 +71,7 @@ public class TaskServiceImpl implements TaskService {
                 throw new TodoException("Task already exists", "TASK_EXISTS", HttpStatus.BAD_REQUEST);
             }
 
-            Task task = Task.builder()
-                    .title(request.getTitle())
-                    .description(request.getDescription())
-                    .dueDate(request.getDueDate())
-                    .priority(request.getPriority())
-                    .status(TaskStatus.PENDING)
-                    .build();
+            Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).dueDate(request.getDueDate()).priority(request.getPriority()).status(TaskStatus.PENDING).build();
 
             task = taskRepository.save(task);
 
@@ -97,21 +92,11 @@ public class TaskServiceImpl implements TaskService {
         if (tasks.isEmpty()) {
             throw new TodoException("No tasks found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND);
         }
-        return tasks.stream()
-                .map(task -> TaskResponse.builder()
-                        .taskId(task.getTaskId())
-                        .dueDate(task.getDueDate())
-                        .description(task.getDescription())
-                        .priority(task.getPriority())
-                        .status(task.getStatus())
-                        .title(task.getTitle())
-                        .build())
-                .collect(Collectors.toList());
+        return tasks.stream().map(task -> TaskResponse.builder().taskId(task.getTaskId()).dueDate(task.getDueDate()).description(task.getDescription()).priority(task.getPriority()).status(task.getStatus()).title(task.getTitle()).build()).collect(Collectors.toList());
     }
 
     @Override
-    public Page<TaskResponse> listTasks(String title, TaskStatus status, Integer priority, LocalDate dueDate,
-                                        Pageable pageable) {
+    public Page<TaskResponse> listTasks(String title, TaskStatus status, Integer priority, LocalDate dueDate, Pageable pageable) {
         TaskServiceImpl proxy = context.getBean(TaskServiceImpl.class);
         List<TaskResponse> cachedList = proxy.getCachedTaskList(title, status, priority, dueDate);
         int start = (int) pageable.getOffset();
@@ -122,20 +107,15 @@ public class TaskServiceImpl implements TaskService {
 
     private boolean isValidStatusTransition(TaskStatus currentStatus, TaskStatus newStatus) {
         // Tạo danh sách trạng thái sau cho phép update.
-        Map<TaskStatus, List<TaskStatus>> validTransitions = Map.of(
-                TaskStatus.PENDING, List.of(TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED),
-                TaskStatus.IN_PROGRESS, List.of(TaskStatus.COMPLETED, TaskStatus.CANCELLED),
-                TaskStatus.COMPLETED, List.of());
+        Map<TaskStatus, List<TaskStatus>> validTransitions = Map.of(TaskStatus.PENDING, List.of(TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED), TaskStatus.IN_PROGRESS, List.of(TaskStatus.COMPLETED, TaskStatus.CANCELLED), TaskStatus.COMPLETED, List.of());
         return validTransitions.getOrDefault(currentStatus, List.of()).contains(newStatus);
     }
 
     private void updateStatusTask(Long taskId, TaskStatus taskStatus) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
+        Task task = taskRepository.findById(taskId).orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
         for (TaskDependency taskDependency : task.getDependencies()) {
             if (taskDependency.getDependentTask().getStatus() != TaskStatus.COMPLETED) {
-                throw new TodoException("Cannot start task until all dependencies are completed",
-                        "DEPENDENCY_NOT_COMPLETED", HttpStatus.BAD_REQUEST);
+                throw new TodoException("Cannot start task until all dependencies are completed", "DEPENDENCY_NOT_COMPLETED", HttpStatus.BAD_REQUEST);
             }
         }
         task.setStatus(taskStatus);
@@ -143,15 +123,13 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private Task getTaskById(Long taskId, String message, String errorCode) {
-        return taskRepository.findById(taskId)
-                .orElseThrow(() -> new TodoException(message, errorCode, HttpStatus.NOT_FOUND));
+        return taskRepository.findById(taskId).orElseThrow(() -> new TodoException(message, errorCode, HttpStatus.NOT_FOUND));
     }
 
     @CacheEvict(value = "tasks", allEntries = true)
     @Override
     public TaskResponse updateTask(Long taskId, TaskUpdateRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
+        Task task = taskRepository.findById(taskId).orElseThrow(() -> new TodoException("Task not found", "TASK_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (request.getTitle() != null && !request.getTitle().isEmpty()) {
             task.setTitle(request.getTitle());
@@ -213,11 +191,9 @@ public class TaskServiceImpl implements TaskService {
         }
         Boolean checkCycle = checkCycle(taskId, dependencyId);
         if (checkCycle) {
-            throw new TodoException("Adding this dependency would create a cycle", "CIRCULAR_DEPENDENCY",
-                    HttpStatus.BAD_REQUEST);
+            throw new TodoException("Adding this dependency would create a cycle", "CIRCULAR_DEPENDENCY", HttpStatus.BAD_REQUEST);
         }
-        TaskDependency taskDependency = TaskDependency.builder().id(taskDependencyId).dependentTask(dependencyTask)
-                .task(task).build();
+        TaskDependency taskDependency = TaskDependency.builder().id(taskDependencyId).dependentTask(dependencyTask).task(task).build();
         taskDependencyRepository.save(taskDependency);
     }
 
@@ -264,21 +240,36 @@ public class TaskServiceImpl implements TaskService {
         return taskMapper.toResponse(task);
     }
 
+    public void sendTaskStatus(Long taskId, String topic, String message) {
+        if (!redisService.isTaskSent(taskId, topic)) {
+            redisService.markTaskAsSent(taskId, topic);
+            kafkaProducerService.sendMessage(topic, message);
+        } else {
+            return;
+        }
+    }
+
     @Scheduled(fixedRate = 60000)
     @Override
     public void checkOverdueTasks() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime upcomingThreshold = now.plusHours(6);
-        List<Task> upcomingTasks = taskRepository.findByDueDateBetween(now, upcomingThreshold);
-        List<Task> overdueTasks = taskRepository.findByDueDateBefore(now);
+        List<Task> tasks = taskRepository.findByDueDateBefore(upcomingThreshold);
 
         System.out.println("🔄 Scheduled task running at: " + now);
-        for (Task task : upcomingTasks) {
-            kafkaProducerService.sendMessage("task_notifications_upcoming", "🔔 Task sắp đến hạn: " + task.getTitle());
-        }
+        tasks.parallelStream().forEach(task -> {
+            String topic = "";
+            String message = "";
+            if (task.getDueDate().isBefore(now)) {
+                topic = "task_notifications_overdue";
+                message = "Task quá hạn: " + task.getTitle() + " vào lúc: " + task.getDueDate();
+            } else {
+                topic = "task_notifications_upcoming";
+                message = "Task sắp đến hạn: " + task.getTitle() + " vào lúc: " + task.getDueDate();
+            }
+            sendTaskStatus(task.getTaskId(), topic, message);
+        });
 
-        for (Task task : overdueTasks) {
-            kafkaProducerService.sendMessage("task_notifications_overdue", "⚠️ Task quá hạn: " + task.getTitle());
-        }
+
     }
 }
