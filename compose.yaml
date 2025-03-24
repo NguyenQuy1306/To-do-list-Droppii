@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  task_service:
+    image: 'task_service:latest'
+    build: ./TaskService
+    container_name: 'task_service'
+    ports:
+      - "8080:8080"
+    develop:
+      watch:
+        - action: rebuild
+          path: ./TaskService/src
+        - action: rebuild
+          path: ./TaskService/pom.xml
+    volumes:
+      - ./TaskService/src:/app/src
+      - ./TaskService/target:/app/target
+      - ./TaskService/logs:/app/logs
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db_task_service:5432/task_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=Ngocquynguyen1
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - SPRING_CACHE_REDIS_TIME_TO_LIVE=300000
+      - SPRING_CACHE_REDIS_CACHE_NULL_VALUES=false
+      - SPRING_DATA_REDIS_TIMEOUT=60000
+      - SPRING_CACHE_CACHE_NAMES=tasks
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      db_task_service:
+        condition: service_healthy
+    networks:
+      - todolist
+
+  notification_service:
+    image: 'notification_service:latest'
+    build: ./NotificationService
+    container_name: 'notification_service'
+    ports:
+      - "8081:8081"
+    develop:
+      watch:
+        - action: rebuild
+          path: ./NotificationService/src
+        - action: rebuild
+          path: ./NotificationService/pom.xml
+    volumes:
+      - ./NotificationService/src:/app/src
+      - ./NotificationService/target:/app/target
+      - ./NotificationService/logs:/app/logs
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db_notification_service:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db_notification_service:5432/notification_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=Ngocquynguyen1
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - todolist
+
+  db_task_service:
+    image: 'postgres:17.2-alpine3.21'
+    container_name: db_task_service
+    volumes:
+      - postgres-task-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Ngocquynguyen1
+      - POSTGRES_DB=task_db
+    networks:
+      - todolist
+
+  db_notification_service:
+    image: 'postgres:17.2-alpine3.21'
+    container_name: db_notification_service
+    volumes:
+      - postgres-notification-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Ngocquynguyen1
+      - POSTGRES_DB=notification_db
+    networks:
+      - todolist
+  redis:
+    image: 'redis:latest'
+    container_name: redis_cache
+    restart: always
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    command: [ "redis-server", "--save", "60", "1", "--loglevel", "warning" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - todolist
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - todolist
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - todolist
+
+volumes:
+  postgres-task-data:
+  postgres-notification-data:
+  redis-data:
+
+networks:
+  todolist:
+    driver: bridge
