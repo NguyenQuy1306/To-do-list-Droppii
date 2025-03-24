@@ -16,8 +16,5 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
     boolean existsByTitle(String title);
 
-    @Query("SELECT DISTINCT R FROM Task R WHERE R.dueDate BETWEEN :now AND :upcomingThreshold")
-    List<Task> findByDueDateBetween(@Param("now") LocalDateTime now, @Param("upcomingThreshold") LocalDateTime upcomingThreshold);
-
-    List<Task> findByDueDateBefore(LocalDateTime dueDateBefore);
+    List<Task> findByDueDateBefore(LocalDateTime upcomingThreshold);
 }

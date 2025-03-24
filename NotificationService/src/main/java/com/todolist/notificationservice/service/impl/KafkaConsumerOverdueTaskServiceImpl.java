@@ -23,12 +23,11 @@ public class KafkaConsumerOverdueTaskServiceImpl implements com.todolist.notific
 //        JsonNode afterNode = rootNode.path("after");
 //        Notification notification = objectMapper.treeToValue(afterNode, Notification.class);
 //        notificationRepository.save(notification);
-        System.out.println("📩 [UPCOMING] Received notification: " + message);
         sendEmailNotification(message);
     }
 
     private void sendEmailNotification(String message) {
-        System.out.println("📧 Sending email reminder: " + message);
-        // Logic gửi email hoặc push notification
+        System.out.println("Sending email reminder: " + message);
+
     }
 }
